@@ -8,7 +8,12 @@ const getStory = async (id) => {
     const story = await axios.get(baseUrl + "item/" + id + ".json");
     return await story.data;
   } catch (error) {
-    console.log("something went wrong");
+    return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
+      error: error,
+    });
   }
 };
 
@@ -18,7 +23,12 @@ const getCommentById = async (commentid) => {
 
     return await comment.data;
   } catch (error) {
-    console.log("something went wrong");
+    return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
+      error: error,
+    });
   }
 };
 
@@ -27,13 +37,17 @@ const getUserdetailsByUsername = async (username) => {
     const user = await axios.get(baseUrl + "user/" + username + ".json");
     return await user.data;
   } catch (error) {
-    console.log("something went wrong");
+    return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
+      error: error,
+    });
   }
 };
 
 const writeFileInJson = async (path, data) => {
   try {
-
     if (!fs.existsSync(path)) {
       return await fs.writeFileSync(path, JSON.stringify(data));
     }
@@ -43,7 +57,12 @@ const writeFileInJson = async (path, data) => {
     storiesDataJson.push(...data);
     return await fs.writeFileSync(path, JSON.stringify(storiesDataJson));
   } catch (error) {
-    console.log("file not able to write", error);
+    return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
+      error: error,
+    });
   }
 };
 
@@ -52,12 +71,17 @@ const readFileFromJson = async (path) => {
     var storiesDataJson;
     let storiesData = await fs.readFileSync(path, "utf8");
 
-    if(storiesData !== ""){
-        storiesDataJson = JSON.parse(storiesData);
+    if (storiesData !== "") {
+      storiesDataJson = JSON.parse(storiesData);
     }
     return storiesDataJson;
   } catch (error) {
-    console.log("file not able to read", error);
+    return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
+      error: error,
+    });
   }
 };
 
@@ -67,29 +91,43 @@ exports.topStories = async (req, res) => {
     let limit = 10;
     const topStories = await axios.get(baseUrl + "topstories.json");
 
-    const top10stories = topStories.data.slice(0, limit);
+    let storiesData = await Promise.all(
+      topStories.data.map(async (element) => {
+        return await getStory(element);
+      })
+    );
+
+    var sortByScore = storiesData.slice(0);
+    sortByScore.sort(function (a, b) {
+      return b.score - a.score;
+    });
+
+    const top10stories = sortByScore.slice(0, limit);
 
     await Promise.all(
-      top10stories.map(async (element) => {
-        const story = await getStory(element);
-   
+      top10stories.map((story) => {
         stories.push({
           title: story.title,
           url: story.url,
           score: story.score,
-          time: story.time,
+          time: new Date(story.time * 1000).toUTCString(),
           user: story.by,
         });
       })
     );
-    
     await writeFileInJson("./data/storiesdata.json", stories);
 
     return res.status(200).json({
+      statuscode: 200,
+      status: "success",
+      message: "Top 10 stories by scores fetched successfully",
       data: stories,
     });
   } catch (error) {
     return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
       error: error,
     });
   }
@@ -102,29 +140,36 @@ exports.getStoryComments = async (req, res) => {
     const comments = [];
     const storyDetails = await getStory(storyId);
     const getStoryCommentIds = storyDetails.kids;
+    const totalComments = getStoryCommentIds.length;
     const top10Comments = getStoryCommentIds.slice(0, limit);
 
-    top10Comments.forEach(async (element) => {
-      const comment = await getCommentById(element);
-      const userDetail = await getUserdetailsByUsername(comment.by);
+    await Promise.all(
+      top10Comments.map(async (element) => {
+        const comment = await getCommentById(element);
+        const userDetail = await getUserdetailsByUsername(comment.by);
 
-      comments.push({
-        text: comment.text,
-        user: comment.by,
-        userCreated: userDetail.created,
-      });
-      console.log({
-        text: comment.text,
-        user: comment.by,
-        userCreated: userDetail.created,
-      });
-    });
-    console.log(comments);
+        comments.push({
+          text: comment.text,
+          user: comment.by,
+          userCreated: new Date(userDetail.created * 1000).toUTCString(),
+        });
+      })
+    );
+
     return res.status(200).json({
-      data: comments,
+      statuscode: 200,
+      status: "success",
+      message: "Top 10 comments by on given story fetched successfully",
+      data: {
+        totalComments: totalComments,
+        comments,
+      },
     });
   } catch (error) {
     return res.status(400).json({
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
       error: error,
     });
   }
@@ -132,21 +177,24 @@ exports.getStoryComments = async (req, res) => {
 
 exports.getPastStories = async (req, res) => {
   try {
-    let previousStoriesdata = await readFileFromJson(
-      "./data/storiesdata.json"
-    );
-
-    if(previousStoriesdata == undefined){
-        previousStoriesdata = [];
-    }else{
-        previousStoriesdata = JSON.parse(previousStoriesdata);
+    let previousStoriesdata = await readFileFromJson("./data/storiesdata.json");
+    
+    if (previousStoriesdata == undefined) {
+      previousStoriesdata = [];
+    } else {
+      previousStoriesdata = previousStoriesdata;
     }
     return res.status(200).json({
+      statuscode: 200,
+      status: "success",
+      message: "Previous stories fetched successfully",
       data: previousStoriesdata,
     });
   } catch (error) {
     return res.status(400).json({
-        msg:"message",
+      statuscode: 400,
+      status: "fail",
+      message: "Something went wrong!!",
       error: error,
     });
   }
