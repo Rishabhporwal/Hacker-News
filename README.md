@@ -3,6 +3,7 @@ Hacker new api implementation for fetching data and play with api
 
 # Steps for installation
 
+- Install memcache in system and start it.
 - npm install
 - npm start
 
