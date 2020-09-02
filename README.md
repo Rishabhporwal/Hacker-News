@@ -3,8 +3,8 @@ Hacker new api implementation for fetching data and play with api
 
 # Steps for installation
 
-npm install
-npm start
+- npm install
+- npm start
 
 # Endpoints
 
