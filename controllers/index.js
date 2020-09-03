@@ -178,7 +178,7 @@ exports.getStoryComments = async (req, res) => {
 exports.getPastStories = async (req, res) => {
   try {
     let previousStoriesdata = await readFileFromJson("./data/storiesdata.json");
-    
+
     if (previousStoriesdata == undefined) {
       previousStoriesdata = [];
     } else {
